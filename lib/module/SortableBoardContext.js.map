@@ -1,0 +1,1 @@
+{"version":3,"names":["createContext","useContext","SortableBoardContext","undefined","useSortableBoardContext"],"sourceRoot":"../../src","sources":["SortableBoardContext.ts"],"mappings":";;AAAA,SAASA,aAAa,EAAEC,UAAU,QAAQ,OAAO;AAGjD,OAAO,MAAMC,oBAAoB,gBAAGF,aAAa,CAAwCG,SAAS,CAAC;AAEnG,OAAO,MAAMC,uBAAuB,GAAGA,CAAA,KAAMH,UAAU,CAACC,oBAAoB,CAAC","ignoreList":[]}
