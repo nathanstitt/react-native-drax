@@ -227,6 +227,18 @@ const SortableItemInner = ({
         onMeasure={(measurements) => {
           draxViewProps.onMeasure?.(measurements);
           if (itemKey && measurements) {
+            // While a drag is live, a re-measure (a parent re-render recreates
+            // the inline onMeasure, re-running DraxView's register effect) can
+            // catch this item mid-shift-animation: the measured position
+            // includes the in-flight transform, and the subtraction below
+            // removes the shift's TARGET, not the distance actually travelled,
+            // storing a corrupted origin. Slot math (getSlotFromPosition) is
+            // defined against pre-drag origins, which we already hold — keep
+            // them. First-time measurements still land: an item mounted
+            // mid-drag has no entry and nothing better to offer.
+            if (draggedIdSV.value !== '' && itemMeasurements.current.has(itemKey)) {
+              return;
+            }
             // Subtract Drax shift transforms when they're included in the
             // measurement. On web: measureLayout always includes transforms.
             // On native: measureLayout ignores transforms, UNLESS DraxView
