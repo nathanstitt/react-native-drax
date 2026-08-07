@@ -27,6 +27,7 @@ const DRAX_PROP_KEYS: ReadonlySet<string> = new Set([
   'noHover',
   'registration',
   'onMeasure',
+  'measureVisual',
   'parent',
   'isParent',
   'scrollPosition',
@@ -139,6 +140,7 @@ export const DraxView = memo((props: DraxViewProps): ReactNode => {
     renderContent,
     registration,
     onMeasure,
+    measureVisual,
     parent: parentProp,
     isParent,
     scrollPosition,
@@ -201,6 +203,29 @@ export const DraxView = memo((props: DraxViewProps): ReactNode => {
     const view = viewRef.current;
     if (!view || !parentViewRef.current) return;
 
+    if (measureVisual && Platform.OS !== 'web') {
+      // Visual (window) position relative to the Drax parent. measureLayout
+      // below returns Yoga layout coordinates on Fabric, which exclude any
+      // ancestor ScrollView's offset — a container inside a scrolling canvas
+      // would measure identically at every scroll position, leaving stale
+      // bounds for hit-testing after the canvas moves under a drag.
+      const parentView = parentViewRef.current;
+      view.measure((_vx: number, _vy: number, width: number, height: number, pageX: number, pageY: number) => {
+        parentView.measure((_px: number, _py: number, _pw: number, _ph: number, parentPageX: number, parentPageY: number) => {
+          const parentData = parentId ? getViewEntry(parentId) : undefined;
+          const parentScroll = parentData?.scrollPosition?.value ?? { x: 0, y: 0 };
+          finalizeMeasurement(
+            pageX - parentPageX + parentScroll.x,
+            pageY - parentPageY + parentScroll.y,
+            width,
+            height,
+            handler,
+          );
+        });
+      });
+      return;
+    }
+
     view.measureLayout(
       parentViewRef.current,
       (x, y, width, height) => {
@@ -251,7 +276,7 @@ export const DraxView = memo((props: DraxViewProps): ReactNode => {
       },
       () => {}
     );
-  }, [id, parentId, viewRef, parentViewRef, getViewEntry, finalizeMeasurement]);
+  }, [id, parentId, viewRef, parentViewRef, getViewEntry, finalizeMeasurement, measureVisual]);
 
   // ── Register/unregister with context ────────────────────────────────
   // Keep a ref to the latest props so registry always has current callbacks

@@ -7,5 +7,5 @@ export interface SortableBoardContainerProps<TItem = unknown> {
     children: ReactNode;
     draxViewProps?: Partial<DraxViewProps>;
 }
-export declare const SortableBoardContainer: <TItem>({ board, style, children, draxViewProps, }: SortableBoardContainerProps<TItem>) => import("react/jsx-runtime").JSX.Element;
+export declare const SortableBoardContainer: <TItem>({ board, style, children, draxViewProps, }: SortableBoardContainerProps<TItem>) => import("react").JSX.Element;
 //# sourceMappingURL=SortableBoardContainer.d.ts.map

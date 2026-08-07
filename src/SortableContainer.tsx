@@ -587,6 +587,7 @@ export const SortableContainer = ({
       isParent
       scrollPosition={scrollPosition}
       monitoring
+      measureVisual
       onMeasure={handleMeasure}
       onMonitorDragStart={onMonitorDragStart}
       onMonitorDragOver={onMonitorDragOver}

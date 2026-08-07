@@ -1,1 +1,1 @@
-{"version":3,"file":"DraxView.d.ts","sourceRoot":"","sources":["../../../src/DraxView.tsx"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAgB,SAAS,EAAE,MAAM,OAAO,CAAC;AAcrD,OAAO,KAAK,EAGV,aAAa,EAEd,MAAM,SAAS,CAAC;AAqHjB,eAAO,MAAM,QAAQ,8CAAgB,aAAa,KAAG,SAAS,CAqS5D,CAAC"}
+{"version":3,"file":"DraxView.d.ts","sourceRoot":"","sources":["../../../src/DraxView.tsx"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAgB,SAAS,EAAE,MAAM,OAAO,CAAC;AAcrD,OAAO,KAAK,EAGV,aAAa,EAEd,MAAM,SAAS,CAAC;AAsHjB,eAAO,MAAM,QAAQ,8CAAgB,aAAa,KAAG,SAAS,CA6T5D,CAAC"}

@@ -33,6 +33,6 @@ interface HoverLayerProps {
  * Content is passed via ref to avoid re-rendering the entire DraxProvider tree.
  * Only this component re-renders when hover content changes (via hoverVersion).
  */
-export declare const HoverLayer: import("react").MemoExoticComponent<({ hoverContentRef, hoverVersion, hoverPositionSV, dragPhaseSV, receiverIdSV, hoverReadySV, hoverDimsSV, hoverStylesRef }: HoverLayerProps) => import("react/jsx-runtime").JSX.Element>;
+export declare const HoverLayer: import("react").MemoExoticComponent<({ hoverContentRef, hoverVersion, hoverPositionSV, dragPhaseSV, receiverIdSV, hoverReadySV, hoverDimsSV, hoverStylesRef }: HoverLayerProps) => import("react").JSX.Element>;
 export {};
 //# sourceMappingURL=HoverLayer.d.ts.map

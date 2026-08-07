@@ -304,6 +304,15 @@ export interface DraxViewProps
   registration?: (registration: DraxViewRegistration | undefined) => void;
   /** For receiving view measurements externally */
   onMeasure?: DraxViewMeasurementHandler;
+  /** Measure this view's VISUAL position (window coordinates relative to the
+   *  Drax parent) instead of Fabric's Yoga layout position. Layout positions
+   *  exclude ancestor ScrollView offsets, so a view inside a plain scrolling
+   *  container measures the same no matter how far it has scrolled — correct
+   *  for sortable ITEMS (whose in-flight shift transforms must not corrupt
+   *  stored origins) but wrong for CONTAINERS that an outer canvas scrolls
+   *  under a drag, where hit-testing needs the bounds where the view actually
+   *  is. No effect on web, which already measures visually. */
+  measureVisual?: boolean;
   /** Unique Drax view id, auto-generated if omitted */
   id?: string;
   /** Drax parent view, if nesting */
