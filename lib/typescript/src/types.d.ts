@@ -680,8 +680,15 @@ export interface SortableListInternal<T> {
     pendingOrderRef: RefObject<number[]>;
     /** Cancel drag without reorder — reverts to committed shifts */
     cancelDrag: () => void;
-    /** Compute target display index from a container-local content position */
-    getSlotFromPosition: (contentPos: Position) => number;
+    /** Compute target display index from a container-local content position.
+     *  `insertion` switches from reorder semantics (take item i's place,
+     *  0..N-1) to insertion semantics (boundaries at item centers, 0..N so the
+     *  position AFTER the last item is reachable) — used for cross-container
+     *  phantom slots and reinjection, where the dragged item is not in the
+     *  list. */
+    getSlotFromPosition: (contentPos: Position, opts?: {
+        insertion?: boolean;
+    }) => number;
     /** Current phantom slot (cross-container drag) */
     phantomRef: RefObject<SortablePhantomSlot | undefined>;
     /** Reserve space for an incoming item at the given display index */

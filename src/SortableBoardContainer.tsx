@@ -263,7 +263,9 @@ export const SortableBoardContainer = <TItem,>({
       }
 
       const contentPos = toContentPos(eventData.dragAbsolutePosition, targetCol);
-      const insertIdx = targetCol.getSlotFromPosition(contentPos);
+      // Insertion semantics: the dragged item is not in the target column, so
+      // the slot AFTER its last item must be reachable (append).
+      const insertIdx = targetCol.getSlotFromPosition(contentPos, { insertion: true });
 
       if (!transfer) {
         // First time crossing — eject from source, set phantom in target
@@ -306,8 +308,10 @@ export const SortableBoardContainer = <TItem,>({
       const sourceCol = columns.get(source.colId);
       if (sourceCol) {
         const contentPos = toContentPos(eventData.dragAbsolutePosition, sourceCol);
+        // Insertion semantics: the item was ejected, so it can re-enter at
+        // the append slot too.
         const insertIdx = sourceCol.pendingOrderRef.current.length > 0
-          ? sourceCol.getSlotFromPosition(contentPos)
+          ? sourceCol.getSlotFromPosition(contentPos, { insertion: true })
           : source.dragStartIndex;
         sourceCol.reinjectDraggedItem(insertIdx, source.originalIndex);
       }
