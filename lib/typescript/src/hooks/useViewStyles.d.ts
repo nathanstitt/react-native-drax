@@ -172,7 +172,7 @@ export declare const useViewStyles: (id: string, styleProps: DraxViewStyleProps)
         cursor?: import("react-native").CursorValue;
         boxShadow?: ReadonlyArray<import("react-native").BoxShadowValue> | string;
         filter?: ReadonlyArray<import("react-native").FilterFunction> | string;
-        mixBlendMode?: "color" | "overlay" | "normal" | "multiply" | "screen" | "darken" | "lighten" | "color-dodge" | "color-burn" | "hard-light" | "soft-light" | "difference" | "exclusion" | "hue" | "saturation" | "luminosity";
+        mixBlendMode?: "color" | "normal" | "multiply" | "screen" | "overlay" | "darken" | "lighten" | "color-dodge" | "color-burn" | "hard-light" | "soft-light" | "difference" | "exclusion" | "hue" | "saturation" | "luminosity";
         experimental_backgroundImage?: ReadonlyArray<import("react-native/types_generated/Libraries/StyleSheet/StyleSheetTypes").BackgroundImageValue> | string;
         experimental_backgroundSize?: ReadonlyArray<import("react-native/types_generated/Libraries/StyleSheet/StyleSheetTypes").BackgroundSizeValue> | string;
         experimental_backgroundPosition?: ReadonlyArray<import("react-native/types_generated/Libraries/StyleSheet/StyleSheetTypes").BackgroundPositionValue> | string;

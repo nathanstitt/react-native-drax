@@ -9,5 +9,5 @@ export interface SortableContainerProps {
     draxViewProps?: Partial<DraxViewProps>;
     renderDropIndicator?: (props: DropIndicatorProps) => ReactNode;
 }
-export declare const SortableContainer: ({ sortable, scrollRef, style, children, draxViewProps, renderDropIndicator, }: SortableContainerProps) => import("react").JSX.Element;
+export declare const SortableContainer: ({ sortable, scrollRef, style, children, draxViewProps, renderDropIndicator, }: SortableContainerProps) => import("react/jsx-runtime").JSX.Element;
 //# sourceMappingURL=SortableContainer.d.ts.map

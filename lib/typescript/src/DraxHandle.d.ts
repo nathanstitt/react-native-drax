@@ -21,5 +21,5 @@ export interface DraxHandleProps {
  * </DraxView>
  * ```
  */
-export declare function DraxHandle({ children, style }: DraxHandleProps): import("react").JSX.Element;
+export declare function DraxHandle({ children, style }: DraxHandleProps): import("react/jsx-runtime").JSX.Element;
 //# sourceMappingURL=DraxHandle.d.ts.map

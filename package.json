@@ -35,7 +35,7 @@
   "scripts": {
     "example": "yarn workspace react-native-drax-example",
     "clean": "del-cli lib",
-    "prepare": "bob build",
+    "build": "bob build",
     "typecheck": "tsc && tsc --project example/tsconfig.json",
     "lint": "eslint .",
     "test": "jest --passWithNoTests",
