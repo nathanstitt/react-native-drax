@@ -1,5 +1,19 @@
 import type { SharedValue } from 'react-native-reanimated';
 /**
+ * The web `touch-action` a drag gesture needs.
+ *
+ * On web RNGH defaults touch-action to 'none', which blocks native scroll.
+ * Allowing the scroll direction lets a user scroll before the long press
+ * activates; SortableContainer freezes the scroll container once a drag starts.
+ *
+ * Priority: lockDragYPosition (explicit axis lock → pan-x) > scrollHorizontal
+ * (hint from SortableItem for horizontal lists without axis lock) > pan-y.
+ *
+ * Exported so the dragHandle path can hand the same value to the
+ * GestureDetector that attaches the gesture, rather than recomputing it.
+ */
+export declare const dragTouchAction: (lockDragYPosition?: boolean, scrollHorizontal?: boolean) => "pan-x" | "pan-y" | undefined;
+/**
  * Creates a Pan gesture for a draggable DraxView.
  * Hit-testing runs entirely on the UI thread — zero runOnJS per frame
  * unless the receiver changes.
@@ -13,5 +27,5 @@ export declare const useDragGesture: (id: string, viewSpatialIndexSV: SharedValu
     y: number;
     width: number;
     height: number;
-} | null>, dragActivationFailOffset?: number, scrollHorizontal?: boolean) => import("react-native-gesture-handler").PanGesture;
+} | null>, dragActivationFailOffset?: number, scrollHorizontal?: boolean, deferTouchAction?: boolean) => import("react-native-gesture-handler").PanGesture;
 //# sourceMappingURL=useDragGesture.d.ts.map

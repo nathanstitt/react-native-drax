@@ -8,7 +8,7 @@ export interface SortableItemProps extends DraxViewProps {
     fixed?: boolean;
     children: ReactNode;
 }
-declare const SortableItemInner: ({ sortable, index, fixed, children, ...draxViewProps }: SortableItemProps) => import("react/jsx-runtime").JSX.Element;
+declare const SortableItemInner: ({ sortable, index, fixed, children, ...draxViewProps }: SortableItemProps) => import("react").JSX.Element;
 export declare const SortableItem: typeof SortableItemInner;
 export {};
 //# sourceMappingURL=SortableItem.d.ts.map

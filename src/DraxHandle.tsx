@@ -42,8 +42,12 @@ export function DraxHandle({ children, style }: DraxHandleProps) {
     );
   }
 
+  // touchAction rides the detector, not the gesture config: this component owns
+  // the attach, and RNGH's web detector applies DOM props only to handlers it
+  // has already attached. Supplying it at gesture-creation time instead would
+  // reach the handler before any view was attached to it.
   return (
-    <GestureDetector gesture={ctx.gesture}>
+    <GestureDetector gesture={ctx.gesture} touchAction={ctx.touchAction}>
       <Reanimated.View style={style}>
         {children}
       </Reanimated.View>

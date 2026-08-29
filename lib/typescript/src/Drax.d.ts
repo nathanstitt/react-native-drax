@@ -19,10 +19,10 @@ export declare const Drax: {
     readonly Provider: ({ style, debug, onDragStart: onProviderDragStart, onDrag: onProviderDrag, onDragEnd: onProviderDragEnd, children, }: import("./types").DraxProviderProps) => import("react").ReactNode;
     readonly ScrollView: (props: import("react").PropsWithChildren<import("./types").DraxScrollViewProps> & {
         ref?: import("react").Ref<import("react-native").ScrollView>;
-    }) => import("react/jsx-runtime").JSX.Element;
+    }) => import("react").JSX.Element;
     readonly View: import("react").MemoExoticComponent<(props: import("./types").DraxViewProps) => import("react").ReactNode>;
-    readonly SortableBoardContainer: <TItem>({ board, style, children, draxViewProps, }: import("./SortableBoardContainer").SortableBoardContainerProps<TItem>) => import("react/jsx-runtime").JSX.Element;
-    readonly SortableContainer: ({ sortable, scrollRef, style, children, draxViewProps, renderDropIndicator, }: import("./SortableContainer").SortableContainerProps) => import("react/jsx-runtime").JSX.Element;
-    readonly SortableItem: ({ sortable, index, fixed, children, ...draxViewProps }: import("./SortableItem").SortableItemProps) => import("react/jsx-runtime").JSX.Element;
+    readonly SortableBoardContainer: <TItem>({ board, style, children, draxViewProps, }: import("./SortableBoardContainer").SortableBoardContainerProps<TItem>) => import("react").JSX.Element;
+    readonly SortableContainer: ({ sortable, scrollRef, style, children, draxViewProps, renderDropIndicator, }: import("./SortableContainer").SortableContainerProps) => import("react").JSX.Element;
+    readonly SortableItem: ({ sortable, index, fixed, children, ...draxViewProps }: import("./SortableItem").SortableItemProps) => import("react").JSX.Element;
 };
 //# sourceMappingURL=Drax.d.ts.map

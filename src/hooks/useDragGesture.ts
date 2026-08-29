@@ -8,6 +8,27 @@ import type { Position } from '../types';
 import { useDraxContext } from './useDraxContext';
 
 /**
+ * The web `touch-action` a drag gesture needs.
+ *
+ * On web RNGH defaults touch-action to 'none', which blocks native scroll.
+ * Allowing the scroll direction lets a user scroll before the long press
+ * activates; SortableContainer freezes the scroll container once a drag starts.
+ *
+ * Priority: lockDragYPosition (explicit axis lock → pan-x) > scrollHorizontal
+ * (hint from SortableItem for horizontal lists without axis lock) > pan-y.
+ *
+ * Exported so the dragHandle path can hand the same value to the
+ * GestureDetector that attaches the gesture, rather than recomputing it.
+ */
+export const dragTouchAction = (
+  lockDragYPosition?: boolean,
+  scrollHorizontal?: boolean
+): 'pan-x' | 'pan-y' | undefined => {
+  if (Platform.OS !== 'web') return undefined;
+  return lockDragYPosition || scrollHorizontal ? 'pan-x' : 'pan-y';
+};
+
+/**
  * Creates a Pan gesture for a draggable DraxView.
  * Hit-testing runs entirely on the UI thread — zero runOnJS per frame
  * unless the receiver changes.
@@ -25,7 +46,12 @@ export const useDragGesture = (
   lockDragYPosition?: boolean,
   dragBoundsSV?: SharedValue<{ x: number; y: number; width: number; height: number } | null>,
   dragActivationFailOffset?: number,
-  scrollHorizontal?: boolean
+  scrollHorizontal?: boolean,
+  // When the caller attaches the gesture itself (the dragHandle path), it also
+  // owns touchAction and passes it to its own GestureDetector. Baking it into
+  // the initial config here would push it at a handler the detector has not
+  // attached yet — see the comment on touchAction below.
+  deferTouchAction = false
 ) => {
   const {
     draggedIdSV,
@@ -44,15 +70,17 @@ export const useDragGesture = (
     handleDragEnd,
   } = useDraxContext();
 
-  // On web, RNGH defaults touch-action to 'none' which blocks native scroll.
-  // Allow the scroll direction so users can scroll before long-press activates.
-  // SortableContainer freezes the scroll container when drag starts.
-  //
-  // Priority: lockDragYPosition (explicit axis lock → pan-x) > scrollHorizontal
-  // (hint from SortableItem for horizontal lists without axis lock) > default pan-y.
-  const touchAction = Platform.OS === 'web'
-    ? ((lockDragYPosition || scrollHorizontal) ? 'pan-x' : 'pan-y')
-    : undefined;
+  // RNGH applies a web touchAction by writing it onto the attached view, which
+  // means it must not reach the handler before something has attached one. On
+  // the dragHandle path the gesture is created HERE but attached by a
+  // descendant DraxHandle, so an initial-config touchAction lands on an
+  // uninitialized delegate and throws (reading 'userSelect' of undefined).
+  // There, `deferTouchAction` keeps it out of the config and DraxHandle passes
+  // the same value to its own GestureDetector instead — RNGH's web detector
+  // takes touchAction as a prop and applies it only to handlers it has already
+  // attached, so the ordering is guaranteed rather than raced.
+  const webTouchAction = dragTouchAction(lockDragYPosition, scrollHorizontal);
+  const touchAction = deferTouchAction ? undefined : webTouchAction;
 
   const failOffset = dragActivationFailOffset !== undefined
     ? [-dragActivationFailOffset, dragActivationFailOffset] as [number, number]

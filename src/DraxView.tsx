@@ -8,7 +8,7 @@ import Reanimated, { useAnimatedReaction, useSharedValue } from 'react-native-re
 import { DraxHandleContext } from './DraxHandleContext';
 import { DraxSubprovider } from './DraxSubprovider';
 import { useDraxContext, useDraxId } from './hooks';
-import { useDragGesture } from './hooks/useDragGesture';
+import { dragTouchAction, useDragGesture } from './hooks/useDragGesture';
 import { isDraggable as computeIsDraggable } from './hooks/useSpatialIndex';
 import { useViewStyles } from './hooks/useViewStyles';
 import { defaultLongPressDelay } from './params';
@@ -380,7 +380,18 @@ export const DraxView = memo((props: DraxViewProps): ReactNode => {
     lockDragYPosition,
     dragBoundsSV,
     props.dragActivationFailOffset,
-    scrollHorizontal
+    scrollHorizontal,
+    // dragHandle means a descendant DraxHandle attaches this gesture, so it
+    // carries touchAction on its own GestureDetector instead.
+    dragHandle
+  );
+
+  // Only meaningful on the dragHandle path, where DraxHandle supplies it to the
+  // detector that actually attaches the gesture.
+  const handleTouchAction = dragTouchAction(lockDragYPosition, scrollHorizontal);
+  const handleContextValue = useMemo(
+    () => ({ gesture, touchAction: handleTouchAction }),
+    [gesture, handleTouchAction]
   );
 
   // ── Animated styles ────────────────────────────────────────────────
@@ -422,7 +433,7 @@ export const DraxView = memo((props: DraxViewProps): ReactNode => {
   // When dragHandle is true, provide the gesture via context so DraxHandle can attach it
   if (dragHandle) {
     renderedContent = (
-      <DraxHandleContext.Provider value={{ gesture }}>
+      <DraxHandleContext.Provider value={handleContextValue}>
         {renderedContent}
       </DraxHandleContext.Provider>
     );
