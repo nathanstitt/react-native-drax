@@ -95,6 +95,7 @@ export const useSpatialIndex = () => {
     for (const [, regEntry] of registryRef.current) {
       if (regEntry.spatialIndex > removedIndex) {
         regEntry.spatialIndex -= 1;
+        if (regEntry.spatialIndexSV) regEntry.spatialIndexSV.value = regEntry.spatialIndex;
       }
     }
 
@@ -117,7 +118,7 @@ export const useSpatialIndex = () => {
 
   /** Register a view (idempotent — re-registration preserves measurements) */
   const registerView = (payload: RegisterViewPayload) => {
-    const { id, parentId, scrollPosition, props } = payload;
+    const { id, parentId, scrollPosition, spatialIndexSV: viewIndexSV, props } = payload;
 
     // Cancel any pending unregister for this view
     pendingUnregistersRef.current.delete(id);
@@ -133,6 +134,8 @@ export const useSpatialIndex = () => {
       existing.parentId = parentId;
       existing.scrollPosition = scrollPosition;
       existing.props = props;
+      existing.spatialIndexSV = viewIndexSV;
+      if (viewIndexSV) viewIndexSV.value = existing.spatialIndex;
 
       const idx = existing.spatialIndex;
       updateSpatialEntryCapabilities(
@@ -181,10 +184,12 @@ export const useSpatialIndex = () => {
       id,
       parentId,
       spatialIndex,
+      spatialIndexSV: viewIndexSV,
       scrollPosition,
       measurements: undefined,
       props,
     });
+    if (viewIndexSV) viewIndexSV.value = spatialIndex;
 
     // Fix up children that registered before this parent.
     // React fires useEffect bottom-up, so children often register before their parent.

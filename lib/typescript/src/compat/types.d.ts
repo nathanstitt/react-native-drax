@@ -29,6 +29,8 @@ export interface DraxPanGestureConfig {
      *  Prevents accidental drags when the user is trying to scroll. */
     failOffsetX?: number | [number, number];
     failOffsetY?: number | [number, number];
+    /** The pointer went down; fires before activation. */
+    onBegin: (event: DraxPanEvent) => void;
     onActivate: (event: DraxPanEvent) => void;
     onUpdate: (event: DraxPanEvent) => void;
     onDeactivate: (event: DraxPanEvent) => void;

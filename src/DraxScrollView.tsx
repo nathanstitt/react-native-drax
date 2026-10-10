@@ -10,6 +10,7 @@ import { useWebScrollFreeze } from './hooks/useWebScrollFreeze';
 import {
   defaultAutoScrollBackThreshold,
   defaultAutoScrollForwardThreshold,
+  defaultAutoScrollIntervalLength,
   defaultAutoScrollJumpRatio,
   defaultScrollEventThrottle,
 } from './params';
@@ -29,6 +30,8 @@ export const DraxScrollView = (
     style,
     onContentSizeChange: onContentSizeChangeProp,
     scrollEventThrottle = defaultScrollEventThrottle,
+    autoScrollIntervalLength = defaultAutoScrollIntervalLength,
+    autoScrollAnimated,
     autoScrollJumpRatio = defaultAutoScrollJumpRatio,
     autoScrollBackThreshold = defaultAutoScrollBackThreshold,
     autoScrollForwardThreshold = defaultAutoScrollForwardThreshold,
@@ -63,6 +66,7 @@ export const DraxScrollView = (
     onScrollProp: props?.onScroll,
     externalRef: ref,
     doScroll: doScrollRef,
+    autoScrollIntervalLength,
   });
 
   // Assign doScroll implementation now that we have scrollRef, measurements, etc.
@@ -103,6 +107,7 @@ export const DraxScrollView = (
       scroll.scrollTo({
         x: xNew ?? scrollPosition.value.x,
         y: yNew ?? scrollPosition.value.y,
+        animated: autoScrollAnimated,
       });
       if (
         'flashScrollIndicators' in scroll &&

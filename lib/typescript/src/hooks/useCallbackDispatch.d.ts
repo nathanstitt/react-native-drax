@@ -34,7 +34,7 @@ interface CallbackDispatchDeps {
 export declare const useCallbackDispatch: (deps: CallbackDispatchDeps) => {
     handleDragStart: (draggedId: string, absolutePosition: Position, _grabOffset: Position) => void;
     handleReceiverChange: (oldReceiverId: string, newReceiverId: string, absolutePosition: Position, monitorIds?: string[]) => void;
-    handleDragEnd: (draggedId: string, receiverId: string, cancelled: boolean, finalMonitorIds?: string[]) => void;
+    handleDragEnd: (draggedId: string, hitReceiverId: string, cancelled: boolean, finalMonitorIds?: string[]) => void;
 };
 export {};
 //# sourceMappingURL=useCallbackDispatch.d.ts.map

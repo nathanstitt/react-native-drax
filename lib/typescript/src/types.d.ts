@@ -349,6 +349,10 @@ export interface ViewRegistryEntry {
     parentId?: string;
     /** Index in the spatialIndexSV array */
     spatialIndex: number;
+    /** The view's own copy of `spatialIndex`, which its worklets read. Removing
+     *  an entry shifts every later index down, so the registry writes the new
+     *  index here whenever it changes. */
+    spatialIndexSV?: SharedValue<number>;
     /** Scroll position SharedValue, for scrollable parent views */
     scrollPosition?: SharedValue<Position>;
     /** Current measurements */
@@ -415,6 +419,8 @@ export interface RegisterViewPayload {
     id: string;
     parentId?: string;
     scrollPosition?: SharedValue<Position>;
+    /** The view's own copy of its spatial index, kept current by the registry. */
+    spatialIndexSV?: SharedValue<number>;
     props: DraxViewProps;
 }
 /** Event data for provider-level drag callbacks */
@@ -475,7 +481,12 @@ export interface AutoScrollState {
 }
 /** Props for auto-scroll options */
 export interface DraxAutoScrollProps {
+    /** Milliseconds between auto-scroll jumps. @default 250 */
     autoScrollIntervalLength?: number;
+    /** Animate each auto-scroll jump. Turn off with a short interval, where an
+     *  animated jump is still running when the next one starts.
+     *  @default the platform's scrollTo default */
+    autoScrollAnimated?: boolean;
     autoScrollJumpRatio?: number;
     autoScrollBackThreshold?: number;
     autoScrollForwardThreshold?: number;

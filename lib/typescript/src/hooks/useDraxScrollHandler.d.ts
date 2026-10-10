@@ -9,8 +9,9 @@ type DraxScrollHandlerArgs<T extends ScrollableComponents> = {
     onScrollProp?: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
     externalRef?: Ref<T>;
     doScroll: RefObject<() => void>;
+    autoScrollIntervalLength?: number;
 };
-export declare const useDraxScrollHandler: <T extends ScrollableComponents>({ idProp, onContentSizeChangeProp, onScrollProp, externalRef, doScroll, }: DraxScrollHandlerArgs<T>) => {
+export declare const useDraxScrollHandler: <T extends ScrollableComponents>({ idProp, onContentSizeChangeProp, onScrollProp, externalRef, doScroll, autoScrollIntervalLength, }: DraxScrollHandlerArgs<T>) => {
     id: string;
     containerMeasurementsRef: RefObject<DraxViewMeasurements | undefined>;
     contentSizeRef: RefObject<Position | undefined>;

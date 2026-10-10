@@ -99,13 +99,26 @@ export const useCallbackDispatch = (deps: CallbackDispatchDeps) => {
   // Track current monitor ids for exit events
   const currentMonitorIdsRef = useRef<string[]>([]);
 
+  // The dragged view's registry entry as it was at drag start. A virtualized
+  // list can recycle or unmount the dragged row while the drag scrolls the list
+  // far away from it; the view then leaves the registry (or re-registers as
+  // another item), and the drag would end with no payload to drop. The live
+  // entry wins while it exists.
+  const draggedEntryRef = useRef<{ id: string; entry: ViewRegistryEntry } | null>(null);
+  const getDraggedEntry = (draggedId: string): ViewRegistryEntry | undefined => {
+    const live = getViewEntry(draggedId);
+    if (live) return live;
+    const kept = draggedEntryRef.current;
+    return kept?.id === draggedId ? kept.entry : undefined;
+  };
+
 
   /** Build dragged view event data from current state */
   const buildDraggedViewData = (
     draggedId: string,
     absolutePosition: Position
   ): DraxEventDraggedViewData | undefined => {
-    const entry = getViewEntry(draggedId);
+    const entry = getDraggedEntry(draggedId);
     if (!entry) return undefined;
 
     const startPos = startPositionSV.value;
@@ -185,6 +198,7 @@ export const useCallbackDispatch = (deps: CallbackDispatchDeps) => {
   ) => {
     const draggedEntry = getViewEntry(draggedId);
     if (!draggedEntry) return;
+    draggedEntryRef.current = { id: draggedId, entry: { ...draggedEntry } };
 
     const dragged = buildDraggedViewData(draggedId, absolutePosition);
     if (!dragged) return;
@@ -284,7 +298,7 @@ export const useCallbackDispatch = (deps: CallbackDispatchDeps) => {
       newMonitorIds.length === 0 &&
       prevMonitorIds.length === 0
     ) {
-      const draggedEntry = getViewEntry(draggedId);
+      const draggedEntry = getDraggedEntry(draggedId);
       if (!draggedEntry) return;
       const hasOnDragOver = newReceiverId && draggedEntry.props.onDragOver;
       const receiverEntry = newReceiverId ? getViewEntry(newReceiverId) : undefined;
@@ -296,7 +310,7 @@ export const useCallbackDispatch = (deps: CallbackDispatchDeps) => {
     const dragged = buildDraggedViewData(draggedId, absolutePosition);
     if (!dragged) return;
 
-    const draggedEntry = getViewEntry(draggedId);
+    const draggedEntry = getDraggedEntry(draggedId);
     const draggedPayload = draggedEntry?.props.dragPayload ?? draggedEntry?.props.payload;
 
     const startPos = startPositionSV.value;
@@ -496,14 +510,14 @@ export const useCallbackDispatch = (deps: CallbackDispatchDeps) => {
   /** Called via runOnJS when drag ends or is cancelled */
   const handleDragEnd = (
     draggedId: string,
-    receiverId: string,
+    hitReceiverId: string,
     cancelled: boolean,
     finalMonitorIds?: string[]
   ) => {
     // receiverIdSV is already cleared on the UI thread in onDeactivate/onFinalize,
     // so the receiver's animated style resets immediately.
 
-    const draggedEntry = getViewEntry(draggedId);
+    const draggedEntry = getDraggedEntry(draggedId);
     if (!draggedEntry) {
       // Reset drag state atomically on UI thread to avoid one-frame flash
       runOnUI((
@@ -551,6 +565,15 @@ export const useCallbackDispatch = (deps: CallbackDispatchDeps) => {
       dragTranslation,
       dragged,
     };
+
+    // The gesture worklet takes a new receiver as soon as the hit-test finds
+    // it, and only then asks it (here, on JS) whether it accepts the drag. A
+    // release before that answer arrives must not drop on a receiver that
+    // refuses.
+    const hitReceiverEntry = hitReceiverId ? getViewEntry(hitReceiverId) : undefined;
+    const acceptsDrag = hitReceiverEntry?.props.acceptsDrag;
+    const receiverId =
+      acceptsDrag && !acceptsDrag(dragged.payload) ? '' : hitReceiverId;
 
     let snapTarget: DraxSnapbackTarget = DraxSnapbackTargetPreset.Default;
 

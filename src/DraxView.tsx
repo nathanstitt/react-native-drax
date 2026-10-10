@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
 import type { SharedValue } from 'react-native-reanimated';
 import Reanimated, { useAnimatedReaction, useSharedValue } from 'react-native-reanimated';
+import { runOnJS } from 'react-native-worklets';
 
 import { DraxHandleContext } from './DraxHandleContext';
 import { DraxSubprovider } from './DraxSubprovider';
@@ -170,6 +171,7 @@ export const DraxView = memo((props: DraxViewProps): ReactNode => {
     getViewEntry,
     rootViewRef,
     scrollOffsetsSV,
+    draggedIdSV,
     parent: contextParent,
   } = useDraxContext();
 
@@ -278,6 +280,10 @@ export const DraxView = memo((props: DraxViewProps): ReactNode => {
     );
   }, [id, parentId, viewRef, parentViewRef, getViewEntry, finalizeMeasurement, measureVisual]);
 
+  // This view's index in the spatial index, for its worklets. The registry
+  // sets it on registration and whenever an earlier entry is removed.
+  const spatialIndexSV = useSharedValue(-1);
+
   // ── Register/unregister with context ────────────────────────────────
   // Keep a ref to the latest props so registry always has current callbacks
   const propsRef = useRef(props);
@@ -288,6 +294,7 @@ export const DraxView = memo((props: DraxViewProps): ReactNode => {
       id,
       parentId,
       scrollPosition,
+      spatialIndexSV,
       props: propsRef.current,
     });
     // Re-measure after registration. onLayout may have fired before
@@ -295,7 +302,7 @@ export const DraxView = memo((props: DraxViewProps): ReactNode => {
     // to silently drop data (entry didn't exist yet in registry).
     measureWithHandler();
     return () => unregisterView(id);
-  }, [id, parentId, scrollPosition, registerView, unregisterView, measureWithHandler]);
+  }, [id, parentId, scrollPosition, spatialIndexSV, registerView, unregisterView, measureWithHandler]);
 
   // ── Update registry when props change ────────────────────────────────
   useEffect(() => {
@@ -319,6 +326,23 @@ export const DraxView = memo((props: DraxViewProps): ReactNode => {
     }
   };
 
+  // ── Re-measure containers and receivers when a drag starts ──────────
+  // A view measures on mount and on resize only. One that moved without
+  // resizing (a screen that slid in after it mounted, a list row shifted by an
+  // insert above it) kept a stale position and hit-tested where it no longer
+  // is; for a container, so did every view inside it, since they are measured
+  // relative to it. A hidden view re-measures to 0×0 and drops out of
+  // hit-testing. Draggable views are left alone: a sortable item's stored
+  // origin must not pick up its in-flight shift transform.
+  const remeasureOnDragStart = !!isParent || scrollPosition !== undefined || (!!props.receptive && !draggable);
+  useAnimatedReaction(
+    () => draggedIdSV.value !== '',
+    (dragging, wasDragging) => {
+      'worklet';
+      if (remeasureOnDragStart && dragging && !wasDragging) runOnJS(measureWithHandler)();
+    }
+  );
+
   // External registration — useLayoutEffect so SortableItem's FLIP
   // useLayoutEffect (which runs after children) sees measureFnRef.
   useLayoutEffect(() => {
@@ -330,15 +354,6 @@ export const DraxView = memo((props: DraxViewProps): ReactNode => {
   }, [id, measureWithHandler, registration]);
 
   // ── Gesture (per-view, UI thread) ──────────────────────────────────
-  // Use a SharedValue for spatialIndex so it updates reactively after registration
-  const spatialIndexSV = useSharedValue(-1);
-
-  // Update spatialIndex after registration completes
-  useEffect(() => {
-    const entry = getViewEntry(id);
-    const index = entry?.spatialIndex ?? -1;
-    spatialIndexSV.value = index;
-  }, [id, getViewEntry, spatialIndexSV]);
 
   // Sync scroll position to spatial index — delegated to a separate hook
   // so the worklet closure only contains SharedValues (no refs from DraxView scope).
