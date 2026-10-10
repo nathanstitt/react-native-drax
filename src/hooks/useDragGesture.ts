@@ -1,11 +1,13 @@
 import { Platform } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
+import { useSharedValue } from 'react-native-reanimated';
 import { runOnJS } from 'react-native-worklets';
 
 import { isFinalizeCanceled, useDraxPanGesture } from '../compat';
 import { computeAbsolutePositionWorklet, hitTestWorklet } from '../math';
-import type { Position } from '../types';
+import type { Position, ViewDimensions } from '../types';
 import { useDraxContext } from './useDraxContext';
+import { useWebPointerMoves } from './useWebPointerMoves';
 
 /**
  * The web `touch-action` a drag gesture needs.
@@ -79,12 +81,155 @@ export const useDragGesture = (
   // the same value to its own GestureDetector instead — RNGH's web detector
   // takes touchAction as a prop and applies it only to handlers it has already
   // attached, so the ordering is guaranteed rather than raced.
+  const isWeb = Platform.OS === 'web';
   const webTouchAction = dragTouchAction(lockDragYPosition, scrollHorizontal);
   const touchAction = deferTouchAction ? undefined : webTouchAction;
+
+  // Touch position within the view at press-down. A pan activates only after
+  // the pointer has travelled past its threshold, and gesture-handler resets
+  // translation at activation, so the activation event alone cannot tell where
+  // the press began. A fast mouse covers the threshold in one pointermove of
+  // tens of pixels; grabbing at the activation point left the hover that far
+  // off the pointer for the whole drag.
+  const pressPointSV = useSharedValue<Position>({ x: 0, y: 0 });
+
+  // The dragged view's size, kept from drag start. A virtualized list can
+  // recycle the dragged row's cell for another item while the drag scrolls the
+  // list: the view then re-registers under a new id, and its live entry no
+  // longer describes what is being dragged. An in-flight drag therefore uses
+  // the id in draggedIdSV and this size, never the view's current identity.
+  const draggedDimsSV = useSharedValue<ViewDimensions | undefined>(undefined);
 
   const failOffset = dragActivationFailOffset !== undefined
     ? [-dragActivationFailOffset, dragActivationFailOffset] as [number, number]
     : undefined;
+
+  // The last pointer position a drag update ran for. On web the window
+  // listener (see useWebPointerMoves) and gesture-handler both report most
+  // moves; whichever comes second is skipped.
+  const lastPointerSV = useSharedValue<Position>({ x: NaN, y: NaN });
+
+  const updateDrag = (absoluteX: number, absoluteY: number) => {
+    'worklet';
+    const draggedId = draggedIdSV.value;
+    if (draggedId === '') return;
+    if (isWeb) {
+      const lastPointer = lastPointerSV.value;
+      if (lastPointer.x === absoluteX && lastPointer.y === absoluteY) return;
+      lastPointerSV.value = { x: absoluteX, y: absoluteY };
+    }
+
+    // Convert screen-absolute touch to root-view-relative
+    const rootOffset = rootOffsetSV.value;
+    const rootRelX = absoluteX - rootOffset.x;
+    const rootRelY = absoluteY - rootOffset.y;
+    const rootRelPos: Position = { x: rootRelX, y: rootRelY };
+
+    dragAbsolutePositionSV.value = rootRelPos;
+
+    // Compute hover position (root-relative)
+    const grabOffset = grabOffsetSV.value;
+
+    const dims = draggedDimsSV.value;
+
+    // Read current spatial index
+    const spatialIndex = viewSpatialIndexSV.value;
+    const entries = spatialIndexSV.value;
+    const viewAbsPos = computeAbsolutePositionWorklet(
+      spatialIndex,
+      entries,
+      scrollOffsetsSV.value
+    );
+
+    let hoverX = lockDragXPosition ? viewAbsPos.x : rootRelX - grabOffset.x;
+    let hoverY = lockDragYPosition ? viewAbsPos.y : rootRelY - grabOffset.y;
+
+    // Clamp to drag bounds if specified
+    if (dragBoundsSV?.value) {
+      const b = dragBoundsSV.value;
+      const vw = dims ? dims.width : 0;
+      const vh = dims ? dims.height : 0;
+      hoverX = Math.max(b.x, Math.min(b.x + b.width - vw, hoverX));
+      hoverY = Math.max(b.y, Math.min(b.y + b.height - vh, hoverY));
+    }
+
+    hoverPositionSV.value = { x: hoverX, y: hoverY };
+
+    // Hit-test at the center of the hover view (not at the raw finger position)
+    // so that receiving activates when the dragged item visually overlaps the receiver.
+    const hitTestPos: Position = {
+      x: hoverX + (dims ? dims.width / 2 : 0),
+      y: hoverY + (dims ? dims.height / 2 : 0),
+    };
+    dragAbsolutePositionSV.value = hitTestPos;
+
+    const result = hitTestWorklet(
+      hitTestPos,
+      entries,
+      scrollOffsetsSV.value,
+      draggedId,
+      dims
+    );
+
+    // Skip the rejected receiver — don't set it in receiverIdSV and don't
+    // send it to JS. This prevents the reject → clear → re-detect → reject loop.
+    let candidateReceiverId = result.receiverId;
+    if (candidateReceiverId === rejectedReceiverIdSV.value) {
+      candidateReceiverId = '';
+    }
+
+    // Clear rejection cache once drag leaves the rejected receiver's bounds
+    if (result.receiverId !== rejectedReceiverIdSV.value && rejectedReceiverIdSV.value !== '') {
+      rejectedReceiverIdSV.value = '';
+    }
+
+    // Always bounce to JS for callback dispatch.
+    // handleReceiverChange safely handles same-receiver calls (skips exit/enter)
+    // and dispatches continuous callbacks (onDrag, onDragOver, onReceiveDragOver)
+    // plus monitor position updates for slot detection.
+    const oldReceiver = receiverIdSV.value;
+    const receiverChanged = candidateReceiverId !== oldReceiver;
+    if (receiverChanged) {
+      receiverIdSV.value = candidateReceiverId;
+    }
+    runOnJS(handleReceiverChange)(
+      oldReceiver,
+      candidateReceiverId,
+      hitTestPos,
+      result.monitorIds
+    );
+  };
+
+  // Ends the drag: a last hit-test to capture the current monitors (they are
+  // only tracked on receiver changes, so a drag without one would end with
+  // none), then the end callbacks.
+  const endDrag = (cancelled: boolean) => {
+    'worklet';
+    const currentDraggedId = draggedIdSV.value;
+    if (currentDraggedId === '') return;
+    const currentReceiverId = receiverIdSV.value;
+
+    const finalHitResult = hitTestWorklet(
+      dragAbsolutePositionSV.value,
+      spatialIndexSV.value,
+      scrollOffsetsSV.value,
+      currentDraggedId,
+      draggedDimsSV.value
+    );
+
+    // Set phase and clear receiver on UI thread so useAnimatedStyle
+    // re-evaluates immediately (receiver style clears instantly).
+    dragPhaseSV.value = 'releasing';
+    receiverIdSV.value = '';
+
+    // Bounce to JS for end callbacks + snap animation
+    runOnJS(handleDragEnd)(currentDraggedId, currentReceiverId, cancelled, finalHitResult.monitorIds);
+  };
+
+  const { start: startWebPointerMoves, stop: stopWebPointerMoves } = useWebPointerMoves({
+    onMove: updateDrag,
+    onOrphanRelease: endDrag,
+  });
 
   const gesture = useDraxPanGesture({
     enabledSV,
@@ -94,6 +239,10 @@ export const useDragGesture = (
     touchAction,
     failOffsetX: failOffset,
     failOffsetY: failOffset,
+    onBegin: (event) => {
+      'worklet';
+      pressPointSV.value = { x: event.x, y: event.y };
+    },
     onActivate: (event) => {
       'worklet';
 
@@ -111,17 +260,19 @@ export const useDragGesture = (
         y: rootRelY - event.y,
       };
 
-      // Grab offset = touch position within the view
-      const grabOffset: Position = {
-        x: event.x,
-        y: event.y,
-      };
+      // Grab offset = touch position within the view at press-down, so the
+      // hover keeps the spot the user grabbed under the pointer.
+      const grabOffset = pressPointSV.value;
 
       // Store shared state (all positions in root-relative space).
       // DO NOT set dragPhaseSV here — it's set by HoverLayer's useLayoutEffect
       // AFTER hover content is committed to the DOM. This prevents the grab blink
       // (item going invisible before hover is visible).
       draggedIdSV.value = id;
+      const activeEntry = spatialIndexSV.value[viewSpatialIndexSV.value];
+      draggedDimsSV.value = activeEntry
+        ? { width: activeEntry.width, height: activeEntry.height }
+        : undefined;
       grabOffsetSV.value = grabOffset;
       startPositionSV.value = { x: rootRelX, y: rootRelY };
       dragAbsolutePositionSV.value = { x: rootRelX, y: rootRelY };
@@ -147,6 +298,11 @@ export const useDragGesture = (
       receiverIdSV.value = '';
       rejectedReceiverIdSV.value = '';
 
+      if (isWeb) {
+        lastPointerSV.value = { x: event.absoluteX, y: event.absoluteY };
+        runOnJS(startWebPointerMoves)();
+      }
+
       // Bounce to JS for callback dispatch + hover content setup
       runOnJS(handleDragStart)(
         id,
@@ -156,144 +312,23 @@ export const useDragGesture = (
     },
     onUpdate: (event) => {
       'worklet';
-
-      // Convert screen-absolute touch to root-view-relative
-      const rootOffset = rootOffsetSV.value;
-      const rootRelX = event.absoluteX - rootOffset.x;
-      const rootRelY = event.absoluteY - rootOffset.y;
-      const rootRelPos: Position = { x: rootRelX, y: rootRelY };
-
-      dragAbsolutePositionSV.value = rootRelPos;
-
-      // Compute hover position (root-relative)
-      const grabOffset = grabOffsetSV.value;
-
-      // Read current spatial index
-      const spatialIndex = viewSpatialIndexSV.value;
-      const entries = spatialIndexSV.value;
-      const viewAbsPos = computeAbsolutePositionWorklet(
-        spatialIndex,
-        entries,
-        scrollOffsetsSV.value
-      );
-
-      let hoverX = lockDragXPosition ? viewAbsPos.x : rootRelX - grabOffset.x;
-      let hoverY = lockDragYPosition ? viewAbsPos.y : rootRelY - grabOffset.y;
-
-      // Clamp to drag bounds if specified
-      if (dragBoundsSV?.value) {
-        const b = dragBoundsSV.value;
-        const viewEntry = entries[spatialIndex];
-        const vw = viewEntry ? viewEntry.width : 0;
-        const vh = viewEntry ? viewEntry.height : 0;
-        hoverX = Math.max(b.x, Math.min(b.x + b.width - vw, hoverX));
-        hoverY = Math.max(b.y, Math.min(b.y + b.height - vh, hoverY));
-      }
-
-      hoverPositionSV.value = { x: hoverX, y: hoverY };
-
-      // Hit-test at the center of the hover view (not at the raw finger position)
-      // so that receiving activates when the dragged item visually overlaps the receiver.
-      const viewEntry = entries[spatialIndex];
-      const hitTestPos: Position = {
-        x: hoverX + (viewEntry ? viewEntry.width / 2 : 0),
-        y: hoverY + (viewEntry ? viewEntry.height / 2 : 0),
-      };
-      dragAbsolutePositionSV.value = hitTestPos;
-
-      const result = hitTestWorklet(
-        hitTestPos,
-        entries,
-        scrollOffsetsSV.value,
-        id,
-        viewEntry ? { width: viewEntry.width, height: viewEntry.height } : undefined
-      );
-
-      // Skip the rejected receiver — don't set it in receiverIdSV and don't
-      // send it to JS. This prevents the reject → clear → re-detect → reject loop.
-      let candidateReceiverId = result.receiverId;
-      if (candidateReceiverId === rejectedReceiverIdSV.value) {
-        candidateReceiverId = '';
-      }
-
-      // Clear rejection cache once drag leaves the rejected receiver's bounds
-      if (result.receiverId !== rejectedReceiverIdSV.value && rejectedReceiverIdSV.value !== '') {
-        rejectedReceiverIdSV.value = '';
-      }
-
-      // Always bounce to JS for callback dispatch.
-      // handleReceiverChange safely handles same-receiver calls (skips exit/enter)
-      // and dispatches continuous callbacks (onDrag, onDragOver, onReceiveDragOver)
-      // plus monitor position updates for slot detection.
-      const oldReceiver = receiverIdSV.value;
-      const receiverChanged = candidateReceiverId !== oldReceiver;
-      if (receiverChanged) {
-        receiverIdSV.value = candidateReceiverId;
-      }
-      runOnJS(handleReceiverChange)(
-        oldReceiver,
-        candidateReceiverId,
-        hitTestPos,
-        result.monitorIds
-      );
+      updateDrag(event.absoluteX, event.absoluteY);
     },
     onDeactivate: (_event) => {
       'worklet';
 
-      const currentDraggedId = draggedIdSV.value;
-      const currentReceiverId = receiverIdSV.value;
-
-      // Run final hit-test to capture current monitors.
-      // Monitor IDs are only updated on receiver changes, so if no receiver
-      // change happened during the drag, monitors would be empty in handleDragEnd.
-      const deactivateEntries = spatialIndexSV.value;
-      const viewEntryFinal = deactivateEntries[viewSpatialIndexSV.value];
-      const finalDims = viewEntryFinal
-        ? { width: viewEntryFinal.width, height: viewEntryFinal.height }
-        : undefined;
-      const finalHitResult = hitTestWorklet(
-        dragAbsolutePositionSV.value,
-        deactivateEntries,
-        scrollOffsetsSV.value,
-        id,
-        finalDims
-      );
-
-      // Set phase and clear receiver on UI thread so useAnimatedStyle
-      // re-evaluates immediately (receiver style clears instantly).
-      dragPhaseSV.value = 'releasing';
-      receiverIdSV.value = '';
-
-      // Bounce to JS for end callbacks + snap animation
-      runOnJS(handleDragEnd)(currentDraggedId, currentReceiverId, false, finalHitResult.monitorIds);
+      if (isWeb) runOnJS(stopWebPointerMoves)();
+      endDrag(false);
     },
     onFinalize: (event, didSucceed) => {
       'worklet';
 
+      if (isWeb) runOnJS(stopWebPointerMoves)();
+
       // If gesture was cancelled (not ended normally).
-      // Check draggedIdSV (set in onActivate) instead of dragPhaseSV
+      // endDrag checks draggedIdSV (set in onActivate) instead of dragPhaseSV
       // because phase is now set later in handleDragStart via runOnUI.
-      if (isFinalizeCanceled(event, didSucceed) && draggedIdSV.value !== '') {
-        const currentDraggedId = draggedIdSV.value;
-        const currentReceiverId = receiverIdSV.value;
-
-        const viewEntryCancel = spatialIndexSV.value[viewSpatialIndexSV.value];
-        const cancelDims = viewEntryCancel
-          ? { width: viewEntryCancel.width, height: viewEntryCancel.height }
-          : undefined;
-        const finalHitResult = hitTestWorklet(
-          dragAbsolutePositionSV.value,
-          spatialIndexSV.value,
-          scrollOffsetsSV.value,
-          id,
-          cancelDims
-        );
-
-        dragPhaseSV.value = 'releasing';
-        receiverIdSV.value = '';
-
-        runOnJS(handleDragEnd)(currentDraggedId, currentReceiverId, true, finalHitResult.monitorIds);
-      }
+      if (isFinalizeCanceled(event, didSucceed)) endDrag(true);
     },
   });
 

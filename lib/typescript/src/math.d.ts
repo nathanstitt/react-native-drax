@@ -15,17 +15,6 @@ export declare const generateRandomId: () => string;
  * Accounts for scroll offsets at each level.
  */
 export declare const computeAbsolutePositionWorklet: (entryIndex: number, entries: SpatialEntry[], scrollOffsets: Position[]) => Position;
-/**
- * Hit-test all views in the spatial index against a given absolute position.
- * Runs entirely on the UI thread as a worklet.
- * Returns the deepest receptive view and all monitoring views that contain the point.
- *
- * @param position - Center of the hover view (absolute)
- * @param entries - Spatial index entries
- * @param scrollOffsets - Scroll offsets per entry
- * @param excludeId - ID of the dragged view (excluded from hit-testing)
- * @param draggedDimensions - Optional dimensions of the dragged view (needed for intersect/contain)
- */
 export declare const hitTestWorklet: (position: Position, entries: SpatialEntry[], scrollOffsets: Position[], excludeId: string, draggedDimensions?: ViewDimensions) => HitTestResult;
 /** Named alignment positions for snap targets within a receiver */
 export type SnapAlignment = 'center' | 'top-left' | 'top-center' | 'top-right' | 'center-left' | 'center-right' | 'bottom-left' | 'bottom-center' | 'bottom-right';

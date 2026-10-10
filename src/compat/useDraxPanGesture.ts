@@ -23,6 +23,7 @@ function useDraxPanGestureV3(config: DraxPanGestureConfig): DraxPanGesture {
     maxPointers: config.maxPointers,
     shouldCancelWhenOutside: config.shouldCancelWhenOutside,
     touchAction: config.touchAction,
+    onBegin: config.onBegin,
     onActivate: config.onActivate,
     onUpdate: config.onUpdate,
     onDeactivate: config.onDeactivate,
@@ -79,6 +80,10 @@ function useDraxPanGestureV2(config: DraxPanGestureConfig): DraxPanGesture {
     if (config.failOffsetX !== undefined) g = g.failOffsetX(config.failOffsetX);
     if (config.failOffsetY !== undefined) g = g.failOffsetY(config.failOffsetY);
     return g
+      .onBegin((event: DraxPanEvent) => {
+        'worklet';
+        config.onBegin(event);
+      })
       .onStart((event: DraxPanEvent) => {
         'worklet';
         config.onActivate(event);

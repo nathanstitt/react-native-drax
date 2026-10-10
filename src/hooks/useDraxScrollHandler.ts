@@ -20,6 +20,7 @@ type DraxScrollHandlerArgs<T extends ScrollableComponents> = {
   onScrollProp?: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
   externalRef?: Ref<T>;
   doScroll: RefObject<() => void>;
+  autoScrollIntervalLength?: number;
 };
 
 export const useDraxScrollHandler = <T extends ScrollableComponents>({
@@ -28,6 +29,7 @@ export const useDraxScrollHandler = <T extends ScrollableComponents>({
   onScrollProp,
   externalRef,
   doScroll,
+  autoScrollIntervalLength = defaultAutoScrollIntervalLength,
 }: DraxScrollHandlerArgs<T>) => {
   const scrollRef = useRef<T>(null);
   const id = useDraxId(idProp);
@@ -82,9 +84,9 @@ export const useDraxScrollHandler = <T extends ScrollableComponents>({
     doScroll.current();
     scrollIntervalRef.current = setInterval(
       () => doScroll.current(),
-      defaultAutoScrollIntervalLength
+      autoScrollIntervalLength
     );
-  }, [doScroll]);
+  }, [doScroll, autoScrollIntervalLength]);
 
   const stopScroll = useCallback(() => {
     if (scrollIntervalRef.current) {
